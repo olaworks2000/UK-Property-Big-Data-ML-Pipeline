@@ -1,0 +1,8 @@
+# Ignore the massive raw data
+data/uk_property_full.csv
+*.parquet
+*.csv
+
+# Ignore local checkpoints
+.ipynb_checkpoints/
+ml_temp/

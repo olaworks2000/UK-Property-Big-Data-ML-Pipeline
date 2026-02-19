@@ -1,0 +1,9 @@
+name: uk_property_ml
+dependencies:
+  - python=3.10
+  - pyspark=3.5.0
+  - pandas
+  - matplotlib
+  - seaborn
+  - requests
+  - pyyaml

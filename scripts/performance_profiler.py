@@ -1,0 +1,481 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "4539790a-e69d-4d3f-85e9-5d4283a01b43",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Starting BIG DATA download (6GB). This may take 5-10 minutes...\nSUCCESS! 6GB Dataset is now ready: /Volumes/workspace/default/uk_land_registry/uk_property_full.csv\nTotal Big Data Rows: 30906560\n"
+     ]
+    }
+   ],
+   "source": [
+    "import requests\n",
+    "\n",
+    "# The 'pp-complete.csv' is the official 6GB file required for your assessment\n",
+    "full_data_url = \"http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-complete.csv\"\n",
+    "full_dest_path = \"/Volumes/workspace/default/uk_land_registry/uk_property_full.csv\"\n",
+    "\n",
+    "try:\n",
+    "    print(\"Starting BIG DATA download (6GB). This may take 5-10 minutes...\")\n",
+    "    with requests.get(full_data_url, stream=True) as r:\n",
+    "        r.raise_for_status()\n",
+    "        with open(full_dest_path, 'wb') as f:\n",
+    "            for chunk in r.iter_content(chunk_size=1024*1024):\n",
+    "                f.write(chunk)\n",
+    "    print(f\"SUCCESS! 6GB Dataset is now ready: {full_dest_path}\")\n",
+    "    \n",
+    "    # Verify the count—this should be over 20 million rows\n",
+    "    full_df = spark.read.csv(full_dest_path, schema=schema)\n",
+    "    print(f\"Total Big Data Rows: {full_df.count()}\")\n",
+    "    \n",
+    "except Exception as e:\n",
+    "    print(f\"Full download failed: {e}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "51f8dcc3-8279-4f2c-8e94-15d6f6bb082b",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Connection Restored! Total Rows: 30906560\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.sql.types import StructType, StructField, StringType, IntegerType\n",
+    "\n",
+    "# Re-declaring the path to your Volume\n",
+    "full_dest_path = \"/Volumes/workspace/default/uk_land_registry/uk_property_full.csv\"\n",
+    "\n",
+    "# Re-defining the Schema for 30 million rows\n",
+    "schema = StructType([\n",
+    "    StructField(\"Transaction_ID\", StringType(), True),\n",
+    "    StructField(\"Price\", IntegerType(), True),\n",
+    "    StructField(\"Date\", StringType(), True),\n",
+    "    StructField(\"Postcode\", StringType(), True),\n",
+    "    StructField(\"Property_Type\", StringType(), True),\n",
+    "    StructField(\"Old_New\", StringType(), True),\n",
+    "    StructField(\"Duration\", StringType(), True),\n",
+    "    StructField(\"PAON\", StringType(), True),\n",
+    "    StructField(\"SAON\", StringType(), True),\n",
+    "    StructField(\"Street\", StringType(), True),\n",
+    "    StructField(\"Locality\", StringType(), True),\n",
+    "    StructField(\"Town_City\", StringType(), True),\n",
+    "    StructField(\"District\", StringType(), True),\n",
+    "    StructField(\"County\", StringType(), True),\n",
+    "    StructField(\"PPD_Category\", StringType(), True),\n",
+    "    StructField(\"Record_Status\", StringType(), True)\n",
+    "])\n",
+    "\n",
+    "# Loading the data\n",
+    "full_path = \"/Volumes/workspace/default/uk_land_registry/uk_property_full.csv\"\n",
+    "property_df = spark.read.format(\"csv\").schema(schema).load(full_path)\n",
+    "\n",
+    "print(f\"Connection Restored! Total Rows: {property_df.count()}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "9c77c0e3-328c-4155-b3ca-132cca92942d",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Cleaned Data Count: 30856185\n+-----+-------------------+--------+-------------+-------+---------+--------------------+\n|Price|          Sale_Date|Postcode|Property_Type|Old_New|Town_City|            District|\n+-----+-------------------+--------+-------------+-------+---------+--------------------+\n|36995|1995-03-24 00:00:00|SE19 3NF|            F|      N|   LONDON|             CROYDON|\n|25000|1995-03-31 00:00:00| E16 1LG|            F|      N|   LONDON|              NEWHAM|\n|25500|1995-05-17 00:00:00| EN3 6EA|            F|      N|  ENFIELD|             ENFIELD|\n|42000|1995-04-21 00:00:00| N13 4RS|            T|      N|   LONDON|             ENFIELD|\n|43000|1995-06-30 00:00:00|RM10 7NU|            T|      N| DAGENHAM|BARKING AND DAGENHAM|\n+-----+-------------------+--------+-------------+-------+---------+--------------------+\nonly showing top 5 rows\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.sql.functions import col, to_timestamp\n",
+    "\n",
+    "# 1. Clean the Data\n",
+    "silver_df = property_df.select(\n",
+    "    col(\"Price\").cast(\"int\"),\n",
+    "    to_timestamp(col(\"Date\"), \"yyyy-MM-dd HH:mm\").alias(\"Sale_Date\"),\n",
+    "    col(\"Postcode\"),\n",
+    "    col(\"Property_Type\"),\n",
+    "    col(\"Old_New\"),\n",
+    "    col(\"Town_City\"),\n",
+    "    col(\"District\")\n",
+    ").dropna() # Remove rows with missing values to ensure ML accuracy\n",
+    "\n",
+    "# 2. Show the clean version\n",
+    "print(f\"Cleaned Data Count: {silver_df.count()}\")\n",
+    "silver_df.show(5)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "384436ee-0fc5-4488-baed-042f8523a203",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "+-------------+-------------+\n|     features|PropertyIndex|\n+-------------+-------------+\n|[36995.0,3.0]|          3.0|\n|[25000.0,3.0]|          3.0|\n|[25500.0,3.0]|          3.0|\n|[42000.0,0.0]|          0.0|\n|[43000.0,0.0]|          0.0|\n+-------------+-------------+\nonly showing top 5 rows\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.ml.feature import StringIndexer, VectorAssembler\n",
+    "\n",
+    "# 1. Convert 'Property_Type' (D, S, T, etc.) into numbers\n",
+    "indexer = StringIndexer(inputCol=\"Property_Type\", outputCol=\"PropertyIndex\")\n",
+    "indexed_df = indexer.fit(property_df).transform(property_df)\n",
+    "\n",
+    "# 2. Vectorization (The Euclidean Prep)\n",
+    "# We combine the Price and the new PropertyIndex into a 'features' vector\n",
+    "assembler = VectorAssembler(inputCols=[\"Price\", \"PropertyIndex\"], outputCol=\"features\")\n",
+    "ml_data = assembler.transform(indexed_df).select(\"features\", \"PropertyIndex\")\n",
+    "\n",
+    "ml_data.show(5)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "80fbffb7-3485-4339-b726-221826e3aaf5",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "+---------+-----+\n| features|label|\n+---------+-----+\n|[36995.0]|  3.0|\n|[25000.0]|  3.0|\n|[25500.0]|  3.0|\n|[42000.0]|  0.0|\n|[43000.0]|  0.0|\n+---------+-----+\nonly showing top 5 rows\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.ml.feature import StringIndexer, VectorAssembler\n",
+    "\n",
+    "# 1. Indexing: Convert text categories to numeric indices\n",
+    "indexer = StringIndexer(inputCol=\"Property_Type\", outputCol=\"label\")\n",
+    "indexed_df = indexer.fit(property_df).transform(property_df)\n",
+    "\n",
+    "# 2. Vectorization: Combine Price and other features into one 'features' column\n",
+    "# This is a key Technical Requirement for your project\n",
+    "assembler = VectorAssembler(inputCols=[\"Price\"], outputCol=\"features\")\n",
+    "final_data = assembler.transform(indexed_df).select(\"features\", \"label\")\n",
+    "\n",
+    "final_data.show(5)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "781d075d-c2da-4c7c-9c48-aff9a6b5bb8f",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Logistic Regression Accuracy: 0.35135234359104905\nDecision Tree Accuracy: 0.3715625352775089\nRandom Forest Accuracy: 0.3714354149476041\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.ml.classification import LogisticRegression, DecisionTreeClassifier, RandomForestClassifier\n",
+    "from pyspark.ml.clustering import KMeans\n",
+    "from pyspark.ml.evaluation import MulticlassClassificationEvaluator, ClusteringEvaluator\n",
+    "\n",
+    "# 1. Split Data: 80% for training, 20% for testing (Standard Big Data practice)\n",
+    "train_df, test_df = final_data.randomSplit([0.8, 0.2], seed=42)\n",
+    "\n",
+    "# 2. Initialize the Algorithms\n",
+    "lr = LogisticRegression(labelCol=\"label\", featuresCol=\"features\")\n",
+    "dt = DecisionTreeClassifier(labelCol=\"label\", featuresCol=\"features\")\n",
+    "rf = RandomForestClassifier(labelCol=\"label\", featuresCol=\"features\")\n",
+    "km = KMeans(k=5, seed=1) # Searching for 5 price-based property clusters\n",
+    "\n",
+    "# 3. The \"Training Factory\"\n",
+    "# This is where your 30.9 million rows are processed in parallel\n",
+    "lr_model = lr.fit(train_df)\n",
+    "dt_model = dt.fit(train_df)\n",
+    "rf_model = rf.fit(train_df)\n",
+    "km_model = km.fit(final_data)\n",
+    "\n",
+    "# 4. Evaluate Accuracy (Distinction Criteria)\n",
+    "evaluator = MulticlassClassificationEvaluator(labelCol=\"label\", predictionCol=\"prediction\", metricName=\"accuracy\")\n",
+    "\n",
+    "lr_acc = evaluator.evaluate(lr_model.transform(test_df))\n",
+    "dt_acc = evaluator.evaluate(dt_model.transform(test_df))\n",
+    "rf_acc = evaluator.evaluate(rf_model.transform(test_df))\n",
+    "\n",
+    "print(f\"Logistic Regression Accuracy: {lr_acc}\")\n",
+    "print(f\"Decision Tree Accuracy: {dt_acc}\")\n",
+    "print(f\"Random Forest Accuracy: {rf_acc}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "e9b2bd34-2d36-4c59-a5a5-1943cbc2799b",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Original Accuracy: 0.3715625352775089\nStability Test Accuracy: 0.37209474185670677\nVariance: 0.0005322065791978914\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Stability Test: Train on a different 80/20 split to see if accuracy stays the same\n",
+    "train_df_2, test_df_2 = final_data.randomSplit([0.8, 0.2], seed=123)\n",
+    "stability_model = dt.fit(train_df_2)\n",
+    "stability_acc = evaluator.evaluate(stability_model.transform(test_df_2))\n",
+    "\n",
+    "print(f\"Original Accuracy: {dt_acc}\")\n",
+    "print(f\"Stability Test Accuracy: {stability_acc}\")\n",
+    "print(f\"Variance: {abs(dt_acc - stability_acc)}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "0d86d756-63b1-4283-a900-5e6f66d3f2cc",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Searching for file... Found! Total Rows: 30906560\n"
+     ]
+    }
+   ],
+   "source": [
+    "# The 'Hard Reset' Load\n",
+    "full_path = \"/Volumes/workspace/default/uk_land_registry/uk_property_full.csv\"\n",
+    "\n",
+    "try:\n",
+    "    # We use a direct spark read with no extra prefixes\n",
+    "    property_df = spark.read.format(\"csv\").schema(schema).load(full_path)\n",
+    "    \n",
+    "    # We trigger an 'action' to force Spark to actually find the file\n",
+    "    print(f\"Searching for file... Found! Total Rows: {property_df.count()}\")\n",
+    "    \n",
+    "except Exception as e:\n",
+    "    print(f\"Still failing. The system says: {e}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "73c3b8ae-b204-4adf-aab8-7f93f20bdf5f",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "GOLD Layer Created successfully!\nFinal National Average: £234,011.17\n"
+     ]
+    }
+   ],
+   "source": [
+    "from pyspark.sql import functions as F\n",
+    "\n",
+    "# 1. Create the GOLD Layer\n",
+    "# We reduce 30M rows into a few thousand city-level summary points\n",
+    "gold_df = property_df.groupBy(\"Town_City\", \"Property_Type\", \"Old_New\") \\\n",
+    "    .agg(F.avg(\"Price\").alias(\"Avg_Price\"), \n",
+    "         F.count(\"*\").alias(\"Total_Sales\"),\n",
+    "         F.max(\"Price\").alias(\"Max_Price\"))\n",
+    "\n",
+    "# 2. Export to your Volume (The Coalesce Nuance)\n",
+    "# .coalesce(1) ensures it's one file for easy download to your HP Omen\n",
+    "gold_df.coalesce(1).write.mode(\"overwrite\").option(\"header\", \"true\").csv(\"/Volumes/workspace/default/uk_land_registry/gold_tableau_data\")\n",
+    "\n",
+    "# 3. Get the Final Statistics for your Report\n",
+    "avg_price = property_df.select(F.avg(\"Price\")).collect()[0][0]\n",
+    "\n",
+    "print(\"GOLD Layer Created successfully!\")\n",
+    "print(f\"Final National Average: £{avg_price:,.2f}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "application/vnd.databricks.v1+cell": {
+     "cellMetadata": {
+      "byteLimit": 2048000,
+      "rowLimit": 10000
+     },
+     "inputWidgets": {},
+     "nuid": "1bf96d43-0801-478c-a489-60e657e30349",
+     "showTitle": false,
+     "tableResultSettingsMap": {},
+     "title": ""
+    }
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Sample created. Download this CSV and put it in your 'data/samples/' folder.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Technical Requirement 1a: Creating a data sample for the repository\n",
+    "# We take only 100 rows so the file size is tiny (KBs)\n",
+    "sample_df = silver_df.limit(100)\n",
+    "sample_df.coalesce(1).write.mode(\"overwrite\").option(\"header\", \"true\").csv(\"/Volumes/workspace/default/uk_land_registry/data_sample\")\n",
+    "\n",
+    "print(\"Sample created. Download this CSV and put it in your 'data/samples/' folder.\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "application/vnd.databricks.v1+notebook": {
+   "computePreferences": null,
+   "dashboards": [],
+   "environmentMetadata": {
+    "base_environment": "",
+    "environment_version": "4"
+   },
+   "inputWidgetPreferences": null,
+   "language": "python",
+   "notebookMetadata": {
+    "pythonIndentUnit": 4
+   },
+   "notebookName": "master_pipeline 2026-02-16 17:35:33",
+   "widgets": {}
+  },
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 0
+}

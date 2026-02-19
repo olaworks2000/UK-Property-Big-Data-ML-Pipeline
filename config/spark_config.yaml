@@ -1,0 +1,6 @@
+cluster_name: "Student_Big_Data_Cluster"
+spark_version: "14.3.x-scala2.12"
+node_type: "Standard_DS3_v2"
+min_workers: 2
+max_workers: 8
+autoscale: true

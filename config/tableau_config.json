@@ -1,0 +1,6 @@
+{
+  "datasource": "gold_tableau_data.csv",
+  "aggregation": "Average",
+  "center_point": 234011.17,
+  "views": ["Pipeline Monitoring", "Model Performance", "Business Insights", "Scalability"]
+}
