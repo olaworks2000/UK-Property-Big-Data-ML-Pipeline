@@ -80,6 +80,11 @@ final_engineered_df.write.mode("overwrite").parquet("/Volumes/workspace/default/
 print(f"Notebook 2 Complete: Silver Layer stored with Scaling and Feature Engineering applied.")
 final_engineered_df.select("Price", "scaled_features", "type_label").show(5)
 
+# --- TECHNICAL REQUIREMENT: Memory Management ---
+# Persisting the engineered data to memory for faster multi-algorithm access
+final_engineered_df.persist() 
+print("Silver Layer persisted in memory for distributed training optimization.")
+
 # 3. Machine Learning (Gold)
 # Decision Tree training code
 import os
