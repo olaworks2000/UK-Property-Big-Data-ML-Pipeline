@@ -11,7 +11,7 @@ print("--- Starting Scikit-Learn (Single Node) Baseline Test ---")
 try:
     start_load = time.time()
     # We use the sample you created for GitHub
-    df_sample = pd.read_csv("data/samples/data_samples.csv")
+    df_sample = pd.read_csv("/Volumes/workspace/default/uk_land_registry/data_sample/part-00000-tid-6632381280132006723-fef711a8-faf3-4ba7-8d50-4d44dd7edb22-2301-1-c000.csv")
     print(f"Sample data loaded in: {time.time() - start_load:.4f}s")
 
     # 2. Simple Preprocessing (Mirroring the Spark Silver Layer)
