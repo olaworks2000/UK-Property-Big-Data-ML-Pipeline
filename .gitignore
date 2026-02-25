@@ -1,8 +1,22 @@
-# Ignore the massive raw data
-data/uk_property_full.csv
-*.parquet
-*.csv
-
-# Ignore local checkpoints
-.ipynb_checkpoints/
+# Spark/Databricks specific
+checkpoint/
 ml_temp/
+*.parquet
+*.crc
+_SUCCESS
+
+# Data & Models (Too large for GitHub)
+data/full/
+models/
+*.csv
+!data/samples/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# OS
+.DS_Store

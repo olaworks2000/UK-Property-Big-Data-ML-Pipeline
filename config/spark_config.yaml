@@ -1,6 +1,19 @@
-cluster_name: "Student_Big_Data_Cluster"
-spark_version: "14.3.x-scala2.12"
-node_type: "Standard_DS3_v2"
-min_workers: 2
-max_workers: 8
-autoscale: true
+# Spark Configuration for UK Land Registry Pipeline (30.9M Rows)
+# Requirement: Resource allocation justification
+
+spark_settings:
+  app_name: "UK_Property_ML_Pipeline"
+  
+  # Resource Allocation (Justification: Optimized for 6.2GB Parquet dataset)
+  master: "local[*]"
+  executor_memory: "8g"        # Sufficient to hold serialized shuffle blocks
+  driver_memory: "4g"          # Handles the final evaluation metric collection
+  executor_cores: 4            # Balanced for parallelism vs. context switching
+  
+  # Shuffle & Partition Tuning (Requirement 1c)
+  sql_shuffle_partitions: 200  # Default for large datasets to avoid small file problems
+  default_parallelism: 8       # Double the core count for task pipelining
+  
+  # Serialization & Performance
+  serializer: "org.apache.spark.serializer.KryoSerializer"
+  memory_fraction: 0.6         # 60% of RAM for execution/storage

@@ -1,9 +1,13 @@
 name: uk_property_ml
+channels:
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.10
   - pyspark=3.5.0
   - pandas
+  - pyarrow  # Justification: Required for high-speed Parquet I/O
+  - scikit-learn
   - matplotlib
   - seaborn
-  - requests
   - pyyaml
