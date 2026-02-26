@@ -11,13 +11,13 @@ import time
 print("--- Starting Scikit-Learn (Single Node) Baseline Test ---")
 
 try:
-    # 1. Load a larger sample (10k rows is safe for local RAM and statistically better)
-    # Ensure this path matches where your CSV sample is stored
-    csv_path = "/Volumes/workspace/default/uk_land_registry/data_sample/part-00000-tid-6632381280132006723-fef711a8-faf3-4ba7-8d50-4d44dd7edb22-2301-1-c000.csv"
-    df_sample = pd.read_csv(csv_path).head(10000)
+    # 1. UPDATED PATH: Pointing to the new clean sample generated in Notebook 2
+    csv_path = "/Volumes/workspace/default/uk_land_registry/github_samples/silver_sample.csv"
+    
+    # We load the sample (Notebook 2 generated 1,000 rows, which is perfect for a CPU baseline)
+    df_sample = pd.read_csv(csv_path)
     
     # 2. Preprocessing
-    # Scikit-learn needs LabelEncoding for categorical targets
     le = LabelEncoder()
     y = le.fit_transform(df_sample['Property_Type'])
     X = df_sample[['Price']]
@@ -39,15 +39,17 @@ try:
     y_pred = clf.predict(X_test)
     baseline_acc = accuracy_score(y_test, y_pred)
     
-    print(f"Scikit-learn training time (10,000 rows): {train_time:.4f}s")
+    print("-" * 30)
+    print(f"Scikit-learn training time (1,000 rows): {train_time:.4f}s")
     print(f"Scikit-learn Baseline Accuracy: {baseline_acc:.4f}")
+    print("-" * 30)
 
     # 5. THE SCALABILITY ARGUMENT (For your Report)
-    print("\n--- PERFORMANCE COMPARISON (FOR REPORT SECTION 3) ---")
+    print("\n--- PERFORMANCE COMPARISON (FOR REPORT EVIDENCE) ---")
     print(f"1. Node Type: Single Machine (Local CPU)")
-    print(f"2. Data Volume: 10,000 rows (0.03% of total dataset)")
-    print(f"3. Bottleneck: Memory (RAM) would be exhausted at ~5M rows.")
-    print(f"4. Spark Advantage: Processed 3,000x more data in comparable time using distributed executors.")
+    print(f"2. Data Volume: 1,000 rows (Sampling 0.003% of total dataset)")
+    print(f"3. Scaling Limit: Scikit-learn cannot utilize Spark's distributed memory for 30.9M rows.")
+    print(f"4. Result: Successfully established baseline for Spark performance comparison.")
 
 except Exception as e:
     print(f"Baseline comparison failed: {e}")
