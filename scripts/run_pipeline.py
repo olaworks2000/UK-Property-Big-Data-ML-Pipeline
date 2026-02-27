@@ -8,7 +8,7 @@ from pyspark.ml.util import DefaultParamsWritable, DefaultParamsReadable
 from pyspark.ml.feature import StringIndexer, VectorAssembler, StandardScaler
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, to_timestamp, year, lit, broadcast, round
-from pyspark.ml.classification import LogisticRegression, DecisionTreeClassifier, RandomForestClassifier, LogisticRegressionModel
+from pyspark.ml.classification import LogisticRegression, DecisionTreeClassifier, RandomForestClassifier, LogisticRegressionModel, RandomForestClassificationModel
 from pyspark.ml.regression import LinearRegression
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 
@@ -72,68 +72,77 @@ def main():
         raw_df.write.mode("overwrite").partitionBy("County").parquet(f"{volume_path}bronze_parquet")
         profiler.track("Ingestion", time.time() - start)
 
-        # --- STAGE 2: FEATURE ENGINEERING ---
+        # --- STAGE 2: FEATURE ENGINEERING & SAMPLE EXPORT ---
         start = time.time()
         print("Stage 2: Feature Engineering & Geographic Encoding...")
         bronze_df = spark.read.parquet(f"{volume_path}bronze_parquet")
         
-        # Lineage & Cleaning
         silver_df = bronze_df.withColumn("source_file", lit("uk_property_full.csv")) \
                             .select(col("Price").cast("double"), to_timestamp(col("Date"), "yyyy-MM-dd HH:mm").alias("Sale_Date"),
                                     "Property_Type", "Old_New", "Town_City").dropna()
         silver_df = silver_df.withColumn("Sale_Year", year(col("Sale_Date")))
 
-        # NEW: Indexing Town_City for the model
+        # Geographic Encoding
         city_indexer = StringIndexer(inputCol="Town_City", outputCol="city_label", handleInvalid="skip")
         silver_df = city_indexer.fit(silver_df).transform(silver_df)
 
-        # ML Prepping
+        # Target Indexing
         type_indexer = StringIndexer(inputCol="Property_Type", outputCol="type_label")
         silver_df = type_indexer.fit(silver_df).transform(silver_df)
         
         silver_df = PriceSegmenter().transform(silver_df)
         
-        # UPDATED: Assembler now uses Price (scaled) AND City Label
-        assembler = VectorAssembler(inputCols=["Price"], outputCol="unscaled_price")
-        assembled_df = assembler.transform(silver_df)
+        # Scaling & Vector Assembly
+        price_assembler = VectorAssembler(inputCols=["Price"], outputCol="unscaled_price")
+        silver_df = price_assembler.transform(silver_df)
         
-        scaler = StandardScaler(inputCol="unscaled_price", outputCol="scaled_price", withStd=True, withMean=True)
-        silver_df = scaler.fit(assembled_df).transform(assembled_df)
+        scaler = StandardScaler(inputCol="unscaled_price", outputCol="scaled_features", withStd=True, withMean=True)
+        silver_df = scaler.fit(silver_df).transform(silver_df)
 
-        # FINAL VECTOR for training
-        final_assembler = VectorAssembler(inputCols=["scaled_price", "city_label"], outputCol="final_features")
+        final_assembler = VectorAssembler(inputCols=["scaled_features", "city_label"], outputCol="final_features")
         silver_df = final_assembler.transform(silver_df)
         
+        # Save Silver Parquet
         silver_df.write.mode("overwrite").parquet(f"{volume_path}silver_engineered_parquet")
+
+        # EXPORT FIX: 100k Tableau Sample (Cast Vectors to String to avoid CSV errors)
+        print("Exporting 100k Silver Sample for Tableau...")
+        tableau_df = silver_df.select(
+            "*",
+            col("unscaled_price").cast("string").alias("unscaled_price_str"),
+            col("scaled_features").cast("string").alias("scaled_features_str"),
+            col("final_features").cast("string").alias("final_features_str")
+        ).drop("unscaled_price", "scaled_features", "final_features")
+        
+        tableau_df.limit(100000).coalesce(1).write.mode("overwrite").option("header", "true") \
+                  .csv(f"{volume_path}gold_tableau_data")
+        
         profiler.track("Feature Engineering", time.time() - start)
 
         # --- STAGE 3: MODEL TRAINING ---
         start = time.time()
-        print("Stage 3: Distributed Training with Geographic Context...")
+        print("Stage 3: Distributed Training (Random Forest Optimized)...")
         data = spark.read.parquet(f"{volume_path}silver_engineered_parquet")
         train_df = data.filter(col("Sale_Year") < 2023)
 
-        # Init Algos (Added maxBins=1200 for High-Cardinality Cities)
-        lr = LogisticRegression(labelCol="type_label", featuresCol="final_features", maxIter=20)
-        dt = DecisionTreeClassifier(labelCol="type_label", featuresCol="final_features", maxBins=1200)
+        # Algorithms with High-Cardinality maxBins fix
         rf = RandomForestClassifier(labelCol="type_label", featuresCol="final_features", numTrees=20, maxBins=1200)
-        lin = LinearRegression(labelCol="type_label", featuresCol="final_features", maxIter=20)
+        lr = LogisticRegression(labelCol="type_label", featuresCol="final_features", maxIter=20)
 
         # Fit & Save
-        lr.fit(train_df).write().overwrite().save(f"{volume_path}models/lr_model")
-        dt.fit(train_df).write().overwrite().save(f"{volume_path}models/dt_model")
         rf.fit(train_df).write().overwrite().save(f"{volume_path}models/rf_model")
-        lin.fit(train_df).write().overwrite().save(f"{volume_path}models/lin_model")
+        lr.fit(train_df).write().overwrite().save(f"{volume_path}models/lr_model")
+        
         profiler.track("Model Training", time.time() - start)
 
-        # --- STAGE 4: EVALUATION & EXPORT ---
+        # --- STAGE 4: EVALUATION & GOLD PERFORMANCE EXPORT ---
         start = time.time()
-        print("Stage 4: Generating Gold Layers for Tableau...")
+        print("Stage 4: Generating Prediction Metrics for Tableau...")
         test_df = data.filter(col("Sale_Year") >= 2023)
-        best_model = LogisticRegressionModel.load(f"{volume_path}models/lr_model")
+        best_model = RandomForestClassificationModel.load(f"{volume_path}models/rf_model")
         predictions = best_model.transform(test_df)
 
-        # Export for Tableau Dashboard 2
+        # Export prediction results (100k rows)
         predictions.select("Price", "type_label", "prediction").limit(100000) \
                    .coalesce(1).write.mode("overwrite").option("header", "true") \
                    .csv(f"{volume_path}gold_model_performance")
