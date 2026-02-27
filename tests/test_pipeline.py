@@ -15,33 +15,43 @@ class TestUKPropertyPipeline(unittest.TestCase):
         """Requirement: Data validation at ingestion"""
         df_bronze = self.spark.read.parquet(self.bronze_path)
         
-        # Test 1: Price must be positive (Basic business logic validation)
+        # Test 1: Price must be positive
         negative_prices = df_bronze.filter(col("Price") <= 0).count()
-        self.assertEqual(negative_prices, 0, f"Found {negative_prices} invalid prices in Bronze layer.")
+        self.assertEqual(negative_prices, 0, f"Found {negative_prices} invalid prices in Bronze.")
         
-        # Test 2: Date column must be present
+        # Test 2: Date and Geographic columns must be present
         self.assertIn("Date", df_bronze.columns)
+        self.assertIn("Town_City", df_bronze.columns)
 
     def test_silver_schema_integrity(self):
-        """Requirement: Ensure Feature Engineering didn't break the schema"""
+        """Requirement: Ensure Feature Engineering schema matches model requirements"""
         df_silver = self.spark.read.parquet(self.silver_path)
         
         # Test 3: Null Check on critical ML features
         null_prices = df_silver.filter(col("Price").isNull()).count()
         self.assertEqual(null_prices, 0, "Null values found in Silver 'Price' column.")
 
-        # Test 4: Check for required ML columns (Requirement 2a)
-        required_cols = ["scaled_features", "type_label", "Market_Segment"]
+        # Test 4: Check for required ML columns (Updated for Geographic Features)
+        # We now check for 'final_features' and 'city_label'
+        required_cols = ["scaled_features", "type_label", "city_label", "final_features", "Market_Segment"]
         for c in required_cols:
             self.assertIn(c, df_silver.columns, f"Missing required ML column: {c}")
+
+    def test_geographic_encoding(self):
+        """Requirement 2a: Verify Town_City was correctly indexed"""
+        df_silver = self.spark.read.parquet(self.silver_path)
+        
+        # Test 5: city_label should be numeric
+        field_type = [f.dataType for f in df_silver.schema.fields if f.name == "city_label"][0]
+        self.assertEqual(str(field_type), "DoubleType()", "city_label must be a Double (numeric) for MLlib.")
 
     def test_data_volume(self):
         """Ensures the dataset hasn't been accidentally truncated"""
         df_silver = self.spark.read.parquet(self.silver_path)
         row_count = df_silver.count()
-        self.assertGreater(row_count, 30000000, "Row count significantly lower than expected 30M+.")
+        # Using the actual row count from your summary
+        self.assertGreater(row_count, 30900000, f"Expected 30.9M+ rows, found {row_count}.")
 
 if __name__ == "__main__":
-    # Running the tests
     suite = unittest.TestLoader().loadTestsFromTestCase(TestUKPropertyPipeline)
     unittest.TextTestRunner(verbosity=2).run(suite)

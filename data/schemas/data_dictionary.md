@@ -1,6 +1,6 @@
 # UK Land Registry - Data Dictionary
 
-This document defines the schema and business logic for the 30.9 million row UK Property dataset used in this ML Pipeline.
+This document defines the schema and business logic for the 30,906,560 row UK Property dataset used in this ML Pipeline.
 
 ## 1. Bronze Layer (Raw Ingested Columns)
 | Column Name | Data Type | Description |
@@ -14,21 +14,23 @@ This document defines the schema and business logic for the 30.9 million row UK 
 | **Duration** | String | Tenure type: F=Freehold, L=Leasehold. |
 | **PAON / SAON** | String | Primary/Secondary Addressable Object Name (House number/Flat name). |
 | **Street / Locality** | String | Street and local area name. |
-| **Town_City** | String | The primary Town or City (Used for Geographic Analysis). |
+| **Town_City** | String | The primary Town or City (Used for Geographic Feature Engineering). |
 | **District / County** | String | Administrative district and county (Partition Key). |
-| **PPD_Category** | String | A=Standard Price Paid, B=Additional Price Paid (Repo/Part-exchange). |
+| **PPD_Category** | String | A=Standard Price Paid, B=Additional Price Paid. |
 | **Record_Status** | String | A=Addition, C=Change, D=Delete. |
 
 ## 2. Silver Layer (Engineered Features)
 | Column Name | Source / Logic | Purpose |
 | :--- | :--- | :--- |
-| **Sale_Year** | `year(Date)` | Extracted for temporal splitting (Train: <2023). |
-| **type_label** | `StringIndexer` | Numeric encoding of Property_Type for ML models. |
+| **Sale_Year** | `year(Date)` | Extracted for temporal splitting (Train: <2023, Test: >=2023). |
+| **type_label** | `StringIndexer` | Numeric encoding of Property_Type (The Target Variable). |
+| **city_label** | `StringIndexer` | Numeric index of 1,173 unique towns for Geographic context. |
 | **Market_Segment** | `PriceSegmenter` | Custom Feature: Budget (<150k), Standard, or Premium (>450k). |
-| **scaled_features** | `StandardScaler` | Z-score normalized Price vector for model stability. |
-| **Type_Description**| `Broadcast Join` | Human-readable mapping (e.g., 'D' -> 'Detached'). |
+| **scaled_features** | `StandardScaler` | Z-score normalized Price vector to improve model convergence. |
+| **final_features** | `VectorAssembler` | The combined feature vector (Price + City) used for Training. |
+| **Type_Description**| `Broadcast Join` | Human-readable mapping joined from mapping dataframe. |
 
 ## 3. Gold Layer (Tableau Exports)
-- **gold_tableau_data**: 100k row sample for Business Intelligence (Dashboards 1 & 3).
-- **gold_model_performance**: Prediction results vs Actuals for ML Evaluation (Dashboard 2).
-- **gold_pipeline_performance**: Execution time logs for Scalability Analysis (Dashboard 4).
+| File Name | Content | Dashboard Use Case |
+| :--- | :--- | :--- |
+| **gold_tableau_data** | 100k Clean Sample | Business Intelligence & Heatmaps (Dash
