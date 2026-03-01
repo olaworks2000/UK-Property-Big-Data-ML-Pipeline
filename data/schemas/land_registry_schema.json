@@ -1,0 +1,16 @@
+{
+  "project": "UK Property Big Data",
+  "version": "1.0",
+  "fields": [
+    {"name": "TUID", "type": "StringType", "description": "Transaction Unique Identifier"},
+    {"name": "Price", "type": "DoubleType", "description": "Sale price in GBP"},
+    {"name": "Transfer_Date", "type": "StringType", "description": "Date of sale (YYYY-MM-DD)"},
+    {"name": "Postcode", "type": "StringType", "description": "Property Postcode"},
+    {"name": "Property_Type", "type": "StringType", "description": "D=Detached, S=Semi, T=Terraced, F=Flats, O=Other"},
+    {"name": "Old_New", "type": "StringType", "description": "Y=New Build, N=Existing"},
+    {"name": "Duration", "type": "StringType", "description": "F=Freehold, L=Leasehold"},
+    {"name": "County", "type": "StringType", "description": "Administrative County"}
+  ],
+  "partition_key": "County",
+  "storage_format": "Parquet"
+}

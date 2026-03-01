@@ -1,0 +1,40 @@
+# --- Byte-compiled / optimized / DLL files ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Data & Large Files (Crucial for Big Data) ---
+# We never commit raw data to GitHub
+data/samples/*.csv
+data/samples/*.parquet
+data/samples/*.zip
+*.csv
+*.parquet
+*.json
+
+# --- Databricks & IDE Specific ---
+.databricks/
+.idea/
+.vscode/
+.DS_Store
+
+# --- Python Environment ---
+env/
+venv/
+.env
+bin/
+lib/
+develop-eggs/
+dist/
+eggs/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+
+# --- Tableau Temporary Files ---
+# We only want the .twbx (packaged) files, not the temp logs
+*.tfl
+*.tflx
+*.log

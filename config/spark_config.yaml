@@ -1,0 +1,28 @@
+# UK Property Big Data - Spark Runtime Configuration
+# Fulfills Section 1(a): Efficient use of SparkSession configuration
+
+spark_settings:
+  app_name: "UK_Property_ML_Production"
+  
+  # Performance Optimization (Section 1c)
+  sql:
+    adaptive:
+      enabled: "true"                # Mandatory for Serverless AQE
+      coalescePartitions:
+        enabled: "true"              # Reduces small file problems
+    shuffle:
+      partitions: "auto"             # Dynamic partition tuning
+    parquet:
+      compression: "snappy"          # Industry standard for Parquet
+      
+  # Memory Management (Section 1b)
+  memory:
+    offHeap:
+      enabled: "true"                # Better performance for large joins
+      size: "2g"
+    fraction: 0.6                    # Balance between storage and execution
+    
+  # Unity Catalog Integration
+  catalog:
+    type: "unity"
+    default_volume: "/Volumes/workspace/default/uk_land_registry/"

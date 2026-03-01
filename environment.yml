@@ -1,0 +1,24 @@
+name: uk_property_ml_pipeline
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      # Core Data Engineering & ML
+      - pyspark==3.5.0
+      - pandas==2.1.1
+      - numpy==1.26.0
+      - scikit-learn==1.3.1
+      
+      # Profiling & System Metrics (Used in performance_profiler.py)
+      - psutil==5.9.5
+      
+      # Visualization Support
+      - matplotlib==3.8.0
+      - seaborn==0.13.0
+      
+      # Utilities
+      - pyyaml==6.0.1
+      - openpyxl==3.1.2
