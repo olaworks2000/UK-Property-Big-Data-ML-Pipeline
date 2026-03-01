@@ -1,8 +1,0 @@
-{
-  "data_source": "gold_model_performance.csv",
-  "refresh_policy": "Extract",
-  "parameters": {
-    "price_threshold": 150000,
-    "top_n_towns": 10
-  }
-}

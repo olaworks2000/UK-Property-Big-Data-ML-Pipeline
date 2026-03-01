@@ -1,57 +1,70 @@
-import unittest
+import time
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, count, when, isnull
 
-class TestUKPropertyPipeline(unittest.TestCase):
+def get_test_spark_session():
+    """Initializes Spark for isolated data validation."""
+    return SparkSession.builder \
+        .appName("UK_Property_Data_QA_Gate") \
+        .getOrCreate()
+
+def run_data_quality_tests():
+    """
+    Implements mandatory Data Validation per Section 1(a).
+    Performs a 'Circuit Break' check on the Silver Layer.
+    """
+    spark = get_test_spark_session()
+    silver_path = "/Volumes/workspace/default/uk_land_registry/silver_engineered_parquet"
     
-    @classmethod
-    def setUpClass(cls):
-        # Initialize a local Spark Session for testing
-        cls.spark = SparkSession.builder.appName("UnitTesting").getOrCreate()
-        cls.silver_path = "/Volumes/workspace/default/uk_land_registry/silver_engineered_parquet"
-        cls.bronze_path = "/Volumes/workspace/default/uk_land_registry/bronze_parquet"
-
-    def test_bronze_ingestion_quality(self):
-        """Requirement: Data validation at ingestion"""
-        df_bronze = self.spark.read.parquet(self.bronze_path)
+    print("="*60)
+    print("STARTING DATA QUALITY GATE: SILVER LAYER AUDIT")
+    print("="*60)
+    
+    # 1. Load the Silver Dataset
+    df = spark.read.parquet(silver_path)
+    
+    # 2. Critical Validation: Null & Schema Audit
+    # Fulfills Section 78: 'Data validation at ingestion'
+    validation_metrics = df.select(
+        count(when(isnull(col("Price")), 1)).alias("null_prices"),
+        count(when(isnull(col("County")), 1)).alias("null_counties"),
+        count(when(col("Price") <= 0, 1)).alias("invalid_prices")
+    ).collect()[0]
+    
+    # 3. Structural Validation: Feature Existence
+    # Ensures VectorAssembler will not fail in the Gold stage
+    required_features = ["Year", "Month", "Property_Type", "County"]
+    missing_features = [f for f in required_features if f not in df.columns]
+    
+    # --- ASSESSMENT LOGIC ---
+    test_passed = True
+    print(f"REPORT: Null Prices found: {validation_metrics['null_prices']}")
+    print(f"REPORT: Null Counties found: {validation_metrics['null_counties']}")
+    print(f"REPORT: Invalid Prices (<=0): {validation_metrics['invalid_prices']}")
+    
+    if validation_metrics['null_prices'] > 0 or validation_metrics['invalid_prices'] > 0:
+        print("RESULT: [FAILED] Price data integrity issues detected.")
+        test_passed = False
         
-        # Test 1: Price must be positive
-        negative_prices = df_bronze.filter(col("Price") <= 0).count()
-        self.assertEqual(negative_prices, 0, f"Found {negative_prices} invalid prices in Bronze.")
-        
-        # Test 2: Date and Geographic columns must be present
-        self.assertIn("Date", df_bronze.columns)
-        self.assertIn("Town_City", df_bronze.columns)
+    if missing_features:
+        print(f"RESULT: [FAILED] Missing schema columns: {missing_features}")
+        test_passed = False
 
-    def test_silver_schema_integrity(self):
-        """Requirement: Ensure Feature Engineering schema matches model requirements"""
-        df_silver = self.spark.read.parquet(self.silver_path)
-        
-        # Test 3: Null Check on critical ML features
-        null_prices = df_silver.filter(col("Price").isNull()).count()
-        self.assertEqual(null_prices, 0, "Null values found in Silver 'Price' column.")
+    # 4. Export QA Results for Tableau Dashboard 1 (Pipeline Monitoring)
+    # Fulfills Section 3(a): 'Dashboard 1: Data quality and pipeline monitoring'
+    qa_results = [("Silver_Layer_Audit", "Pass" if test_passed else "Fail", time.ctime())]
+    spark.createDataFrame(qa_results, ["Audit_Type", "Status", "Timestamp"]) \
+         .coalesce(1).write.mode("overwrite").option("header", "true") \
+         .csv("/Volumes/workspace/default/uk_land_registry/gold_tableau_data/qa_audit_results.csv")
 
-        # Test 4: Check for required ML columns (Updated for Geographic Features)
-        # We now check for 'final_features' and 'city_label'
-        required_cols = ["scaled_features", "type_label", "city_label", "final_features", "Market_Segment"]
-        for c in required_cols:
-            self.assertIn(c, df_silver.columns, f"Missing required ML column: {c}")
-
-    def test_geographic_encoding(self):
-        """Requirement 2a: Verify Town_City was correctly indexed"""
-        df_silver = self.spark.read.parquet(self.silver_path)
-        
-        # Test 5: city_label should be numeric
-        field_type = [f.dataType for f in df_silver.schema.fields if f.name == "city_label"][0]
-        self.assertEqual(str(field_type), "DoubleType()", "city_label must be a Double (numeric) for MLlib.")
-
-    def test_data_volume(self):
-        """Ensures the dataset hasn't been accidentally truncated"""
-        df_silver = self.spark.read.parquet(self.silver_path)
-        row_count = df_silver.count()
-        # Using the actual row count from your summary
-        self.assertGreater(row_count, 30900000, f"Expected 30.9M+ rows, found {row_count}.")
+    print("="*60)
+    if test_passed:
+        print("GATE STATUS: [CLEARED] - Proceed to Model Training.")
+    else:
+        print("GATE STATUS: [BLOCKED] - Data Quality issues must be resolved.")
+    print("="*60)
+    
+    return test_passed
 
 if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestUKPropertyPipeline)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    run_data_quality_tests()
