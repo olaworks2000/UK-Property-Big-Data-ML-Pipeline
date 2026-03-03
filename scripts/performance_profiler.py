@@ -31,7 +31,7 @@ def profile_spark_operation(spark, step_name, df_operation, *args, **kwargs):
     try:
         df_result = df_operation(*args, **kwargs)
         
-        # MANDATORY: Force Action for accurate timing on Serverless
+        # Have to Force Action for accurate timing on Serverless
         # This bypasses Spark's lazy evaluation to measure actual compute
         row_count = df_result.count() 
         

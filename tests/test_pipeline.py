@@ -24,7 +24,7 @@ def run_data_quality_tests():
     df = spark.read.parquet(silver_path)
     
     # 2. Critical Validation: Null & Schema Audit
-    # Fulfills Section 78: 'Data validation at ingestion'
+    # 'Data validation at ingestion'
     validation_metrics = df.select(
         count(when(isnull(col("Price")), 1)).alias("null_prices"),
         count(when(isnull(col("County")), 1)).alias("null_counties"),
@@ -36,7 +36,7 @@ def run_data_quality_tests():
     required_features = ["Year", "Month", "Property_Type", "County"]
     missing_features = [f for f in required_features if f not in df.columns]
     
-    # --- ASSESSMENT LOGIC ---
+    # --- LOGIC ---
     test_passed = True
     print(f"REPORT: Null Prices found: {validation_metrics['null_prices']}")
     print(f"REPORT: Null Counties found: {validation_metrics['null_counties']}")
@@ -51,7 +51,7 @@ def run_data_quality_tests():
         test_passed = False
 
     # 4. Export QA Results for Tableau Dashboard 1 (Pipeline Monitoring)
-    # Fulfills Section 3(a): 'Dashboard 1: Data quality and pipeline monitoring'
+    # 'Dashboard 1: Data quality and pipeline monitoring'
     qa_results = [("Silver_Layer_Audit", "Pass" if test_passed else "Fail", time.ctime())]
     spark.createDataFrame(qa_results, ["Audit_Type", "Status", "Timestamp"]) \
          .coalesce(1).write.mode("overwrite").option("header", "true") \

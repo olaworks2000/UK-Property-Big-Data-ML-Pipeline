@@ -7,7 +7,8 @@ This repository contains a production-grade **Medallion Architecture** implement
 
 ## Interactive Dashboards
 The final analysis is presented across four distinct Tableau dashboards. 
-**[VIEW THE FULL TABLEAU REPOSITORY HERE] https://public.tableau.com/app/profile/olayemi.odobo/viz/All_Dashboards_17723367352830/4_ScalabilityCloudEconomics?publish=yes**
+**[VIEW THE FULL TABLEAU REPOSITORY HERE] https://public.tableau.com/app/profile/olayemi.odobo/vizzes
+
 
 - **Dashboard 1:** Pipeline Health & Data Quality Audit
 - **Dashboard 2:** Model Performance & Cost-Performance Tradeoff
@@ -48,4 +49,4 @@ Author: Odobo Olayemi Osazuwa
 
 Institution: Coventry University
 
-Module: 7006SCN - Big Data Systems and Machine Learning
+Module: 7006SCN - Machine Learning and Big Data
